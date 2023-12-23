@@ -1,6 +1,77 @@
 use std::{io::Read, process::ExitCode};
 
-use parallel_update::{config::Config, types::*};
+use parallel_update::{
+    config::{Config, UpdaterConfig},
+    types::*,
+    update::Update,
+};
+
+fn print_update(
+    update: &Update,
+    state: State,
+    config: &UpdaterConfig,
+    indent: usize,
+    print_depends: bool,
+) {
+    for _ in 0..indent {
+        eprint!("  ");
+    }
+
+    eprint!("\x1b[1m{:?} {:?}", update.id, update.program);
+
+    if let State::Failed(code) = state {
+        eprint!(" ({})", code);
+    }
+
+    if config.output_duration {
+        if let Some(ref output) = *update.output.lock().unwrap() {
+            eprint!(" took {:?}", output.duration);
+        } else {
+            eprint!(" took ??");
+        }
+    }
+
+    eprintln!("\x1b[0m");
+
+    if print_depends {
+        eprintln!("  Depends: {:?}", update.info.depends);
+        eprintln!("  Conflicts: {:?}", update.info.conflicts);
+    }
+
+    if (config.output_success_logs && state == State::Success)
+        || (config.output_failure_logs && matches!(state, State::Failed(_) | State::Error))
+    {
+        if let Some(ref output) = *update.output.lock().unwrap() {
+            let mut did_print = false;
+
+            let stdout = std::str::from_utf8(&output.output.stdout).unwrap();
+            if !stdout.trim().is_empty() {
+                for _ in 0..=indent {
+                    eprint!("  ");
+                }
+                eprintln!("stdout:");
+
+                eprintln!("{}", stdout);
+
+                did_print = true;
+            }
+            let stderr = std::str::from_utf8(&output.output.stderr).unwrap();
+            if !stderr.trim().is_empty() {
+                for _ in 0..=indent {
+                    eprint!("  ");
+                }
+                eprintln!("stderr:");
+
+                eprintln!("{}", stderr);
+
+                did_print = true;
+            }
+            if did_print {
+                eprintln!();
+            }
+        }
+    }
+}
 
 fn main() -> Result<ExitCode, Box<dyn std::error::Error>> {
     let mut config = std::fs::OpenOptions::new()
@@ -13,53 +84,63 @@ fn main() -> Result<ExitCode, Box<dyn std::error::Error>> {
 
     let config: Config = toml::from_str(&config_str)?;
 
-    eprintln!("{:#?}", config);
-
     let (c, updater) = config.updater()?;
 
-    eprintln!("{:#?}", updater);
+    if c.debug_config {
+        eprintln!("{:#?}", c);
 
-    let start = std::time::Instant::now();
-    let result = updater.run(6);
-    let duration = start.elapsed();
-
-    let mut exitcode = ExitCode::SUCCESS;
-
-    eprintln!("\x1b[32;1mSuccess\x1b[0m:");
-    for update in &result {
-        if update.state.get() == State::Success {
-            eprintln!("\t\x1b[1m{:?} {:?}\x1b[0m", update.id, update.program);
-
-            if c.output_success {
-                if let Some(ref output) = *update.output.lock().unwrap() {
-                    eprintln!("\t{:?}", output.duration);
-                    eprintln!("{}", std::str::from_utf8(&output.output.stdout).unwrap());
-                    eprintln!("{}", std::str::from_utf8(&output.output.stderr).unwrap());
-                    eprintln!();
-                }
-            }
+        for update in updater.updates() {
+            print_update(update, State::Pending, &c, 0, true);
         }
+
+        return Ok(ExitCode::SUCCESS);
     }
 
-    eprintln!();
-    eprintln!("\x1b[31;1mFailed\x1b[0m:");
-    for update in &result {
-        if let State::Failed(failed) = update.state.get() {
-            exitcode = ExitCode::FAILURE;
-            eprintln!(
-                "\t\x1b[1m{:?} {:?} ({})\x1b[0m",
-                update.id, update.program, failed
-            );
+    let start = std::time::Instant::now();
+    let results = updater.run(c.threads);
+    let duration = start.elapsed();
 
-            if let Some(ref output) = *update.output.lock().unwrap() {
-                eprintln!("\t{:?}", output.duration);
-                eprintln!("{}", std::str::from_utf8(&output.output.stdout).unwrap());
-                eprintln!("{}", std::str::from_utf8(&output.output.stderr).unwrap());
-                eprintln!();
+    let results: Vec<_> = results
+        .into_iter()
+        .map(|update| (update.state.get(), update))
+        .collect();
+
+    let successful: Vec<_> = results
+        .iter()
+        .filter(|(state, _)| *state == State::Success)
+        .collect();
+    let failed: Vec<_> = results
+        .iter()
+        .filter(|(state, _)| matches!(state, State::Failed(_)))
+        .collect();
+    let ignored: Vec<_> = results
+        .iter()
+        .filter(|(state, _)| *state == State::Ignored)
+        .collect();
+
+    if c.output_states {
+        if !successful.is_empty() {
+            eprintln!("\x1b[32;1mSuccess\x1b[0m:");
+            for (state, update) in &successful {
+                print_update(update, *state, &c, 1, false);
             }
+            eprintln!();
         }
-        if update.state.get() == State::Error {
-            eprintln!("\t\x1b[1m{:?} {:?}\x1b[0m", update.id, update.program);
+
+        if !failed.is_empty() {
+            eprintln!("\x1b[31;1mFailed\x1b[0m:");
+            for (state, update) in &failed {
+                print_update(update, *state, &c, 1, false);
+            }
+            eprintln!();
+        }
+
+        if !ignored.is_empty() {
+            eprintln!("\x1b[2;1mIgnored\x1b[0m:");
+            for (state, update) in &ignored {
+                print_update(update, *state, &c, 1, true);
+            }
+            eprintln!();
         }
     }
 
@@ -67,5 +148,9 @@ fn main() -> Result<ExitCode, Box<dyn std::error::Error>> {
         eprintln!("Total time: {:?}", duration);
     }
 
-    Ok(exitcode)
+    Ok(if failed.is_empty() && ignored.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    })
 }

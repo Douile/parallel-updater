@@ -37,6 +37,16 @@ pub struct UpdateConfig {
     pub program: Program,
 }
 
+#[cfg(feature = "serde")]
+const fn default_true() -> bool {
+    true
+}
+
+#[cfg(feature = "serde")]
+const fn default_two() -> usize {
+    2
+}
+
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UpdaterConfig {
@@ -45,7 +55,19 @@ pub struct UpdaterConfig {
     pub output_duration: bool,
     /// Output stdout/stderr for successful updates
     #[cfg_attr(feature = "serde", serde(default))]
-    pub output_success: bool,
+    pub output_success_logs: bool,
+    /// Output stdout/stderr for failed updates
+    #[cfg_attr(feature = "serde", serde(default = "default_true"))]
+    pub output_failure_logs: bool,
+    /// Output update states
+    #[cfg_attr(feature = "serde", serde(default = "default_true"))]
+    pub output_states: bool,
+    /// Number of updates to run at once
+    #[cfg_attr(feature = "serde", serde(default = "default_two"))]
+    pub threads: usize,
+    /// Debug config
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub debug_config: bool,
 }
 
 #[derive(Debug, Clone)]
