@@ -1,10 +1,7 @@
 use std::{io::Read, process::ExitCode};
 
-use parallel_update::{
-    config::{Config, UpdaterConfig},
-    types::*,
-    update::Update,
-};
+use parallel_update::{types::*, update::Update, Updater};
+use parallel_update_config::config::{Config, UpdaterConfig};
 
 fn print_update(
     update: &Update,
@@ -84,7 +81,7 @@ fn main() -> Result<ExitCode, Box<dyn std::error::Error>> {
 
     let config: Config = toml::from_str(&config_str)?;
 
-    let (c, updater) = config.updater()?;
+    let (c, updater) = Updater::try_from_config(config)?;
 
     if c.debug_config {
         eprintln!("{:#?}", c);

@@ -1,7 +1,9 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     sync::{mpsc::channel, Arc, Mutex},
 };
+
+use parallel_update_config::config::{Config, UpdaterConfig};
 
 use crate::error::Result;
 use crate::Update;
@@ -153,5 +155,27 @@ impl Updater {
         }
 
         self.updates
+    }
+
+    pub fn try_from_config(config: Config) -> Result<(UpdaterConfig, Updater)> {
+        let mut id_map = HashMap::new();
+
+        let update_configs: Vec<_> = config
+            .updates
+            .into_iter()
+            .enumerate()
+            .map(|(i, (name, config))| {
+                id_map.insert(name.clone(), UpdateId(i));
+                (name, config)
+            })
+            .collect();
+
+        let mut updates = Vec::with_capacity(update_configs.len());
+
+        for (name, update) in update_configs {
+            updates.push(Update::try_from_config(update, &name, &id_map)?)
+        }
+
+        Ok((config.updater, Updater::new(updates)?))
     }
 }

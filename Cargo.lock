@@ -34,7 +34,7 @@ checksum = "f665ee40bc4a3c5590afb1e9677db74a508659dfd71e126420da8274909a0167"
 name = "parallel-update"
 version = "0.1.0"
 dependencies = [
- "serde",
+ "parallel-update-config",
 ]
 
 [[package]]
@@ -42,7 +42,15 @@ name = "parallel-update-cli"
 version = "0.1.0"
 dependencies = [
  "parallel-update",
+ "parallel-update-config",
  "toml",
+]
+
+[[package]]
+name = "parallel-update-config"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
