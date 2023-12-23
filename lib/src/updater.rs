@@ -46,13 +46,17 @@ impl Updater {
         })
     }
 
-    fn all_done(&self) -> bool {
+    pub fn updates(&self) -> &[Arc<Update>] {
+        &self.updates
+    }
+
+    pub fn all_done(&self) -> bool {
         self.updates
             .iter()
             .all(|update| update.state.get().is_done())
     }
 
-    fn done(&self) -> HashSet<UpdateId> {
+    pub fn done(&self) -> HashSet<UpdateId> {
         self.updates
             .iter()
             .filter(|update| update.state.get().is_done())
@@ -60,7 +64,15 @@ impl Updater {
             .collect()
     }
 
-    fn running(&self) -> HashSet<UpdateId> {
+    pub fn successful(&self) -> HashSet<UpdateId> {
+        self.updates
+            .iter()
+            .filter(|update| update.state.get() == State::Success)
+            .map(|update| update.id)
+            .collect()
+    }
+
+    pub fn running(&self) -> HashSet<UpdateId> {
         self.updates
             .iter()
             .filter(|update| update.state.get().is_running())
@@ -68,7 +80,7 @@ impl Updater {
             .collect()
     }
 
-    fn running_count(&self) -> usize {
+    pub fn running_count(&self) -> usize {
         self.updates
             .iter()
             .filter(|update| update.state.get().is_running())
@@ -79,14 +91,24 @@ impl Updater {
         let stdin_in_use = global_state.has_stdin_lock.lock().unwrap().is_some();
 
         let done = self.done();
+        let successful = self.successful();
         let running = self.running();
 
         let mut valid_pending = self.updates.iter().filter(|update| {
-            let info = &update.info;
+            // Set ignored if cannot run
+            for dependecy in update.info.depends.iter() {
+                let is_done = done.contains(dependecy);
+                let is_success = successful.contains(dependecy);
+                if is_done && !is_success {
+                    update.state.set(State::Ignored);
+                    return false;
+                }
+            }
+
             update.state.get() == State::Pending
-                && (!stdin_in_use || !info.input)
-                && info.depends.iter().all(|id| done.contains(id))
-                && info.conflicts.iter().all(|id| !running.contains(id))
+                && (!stdin_in_use || !update.info.input)
+                && update.info.depends.iter().all(|id| successful.contains(id))
+                && update.info.conflicts.iter().all(|id| !running.contains(id))
         });
 
         valid_pending.next().map(|update| update.id)

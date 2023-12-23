@@ -5,17 +5,28 @@ pub struct UpdateId(pub usize);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum State {
+    /// Update is waiting to start
     Pending,
+    /// Update is starting (configuration)
     Starting,
+    /// Update is currently running
     Running,
+    /// Update finished successfully
     Success,
+    /// Update finished returning an error
     Failed(i32),
+    /// Update encountered a rust error while running
     Error,
+    /// Update wasn't able to run
+    Ignored,
 }
 
 impl State {
     pub fn is_done(&self) -> bool {
-        matches!(self, State::Success | State::Failed(_) | State::Error)
+        matches!(
+            self,
+            State::Success | State::Failed(_) | State::Error | State::Ignored
+        )
     }
     pub fn is_running(&self) -> bool {
         matches!(self, State::Starting | State::Running)
