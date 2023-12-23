@@ -1,0 +1,17 @@
+[updater]
+output_duration = true
+output_success = false
+
+[updates.paru_repo]
+exe = "paru"
+argv = ["-Syu", "--repo"]
+input = true
+root = true
+conflicts = ["paru_aur"]
+
+[updates.paru_aur]
+exe = "paru"
+argv = ["-Syu", "--aur"]
+input = true
+root = true
+conflicts = ["paru_repo"]

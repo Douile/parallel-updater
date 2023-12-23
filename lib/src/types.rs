@@ -37,8 +37,13 @@ pub struct Info {
     pub depends: Vec<UpdateId>,
 }
 
+const fn default_true() -> bool {
+    true
+}
+
 /// Represents details needed to start a program.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Program {
     /// Path to executable of program
     pub exe: String,
@@ -46,8 +51,10 @@ pub struct Program {
     pub argv: Option<Vec<String>>,
     /// Optional extra environment variables for the program
     pub environ: Option<Vec<(String, String)>>,
-    ///
+    /// The directory the program should be executed in
     pub working_directory: Option<String>,
+    /// Whether to past through the host programs environment.
+    #[cfg_attr(feature = "serde", serde(default = "default_true"))]
     pub passthrough_environ: bool,
 }
 

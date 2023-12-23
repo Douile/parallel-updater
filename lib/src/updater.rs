@@ -3,19 +3,47 @@ use std::{
     sync::{mpsc::channel, Arc},
 };
 
-use crate::types::*;
+use crate::error::Result;
 use crate::Update;
+use crate::{error::ErrorKind, types::*};
 
 #[derive(Debug)]
 pub struct Updater {
     updates: Vec<Arc<Update>>,
 }
 
-impl Updater {
-    pub fn new(updates: Vec<Update>) -> Updater {
-        Updater {
-            updates: updates.into_iter().map(Arc::new).collect(),
+fn validate_updates(updates: &[Update]) -> Result<()> {
+    for update in updates {
+        if update.id.0 >= updates.len() {
+            return Err(ErrorKind::InvalidUpdater.context("Update ID is out of bounds"));
         }
+        for dependency in &update.info.depends {
+            if dependency.0 >= updates.len() {
+                return Err(ErrorKind::InvalidUpdater.context("Dependecy ID is out of bounds"));
+            }
+            if *dependency == update.id {
+                return Err(ErrorKind::InvalidUpdater.context("Update cannot depend on itself"));
+            }
+        }
+        for conflict in &update.info.conflicts {
+            if conflict.0 >= updates.len() {
+                return Err(ErrorKind::InvalidUpdater.context("Conflict ID is out of bounds"));
+            }
+            if *conflict == update.id {
+                return Err(ErrorKind::InvalidUpdater.context("Update cannot conflict with itself"));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+impl Updater {
+    pub fn new(updates: Vec<Update>) -> Result<Updater> {
+        validate_updates(&updates)?;
+        Ok(Updater {
+            updates: updates.into_iter().map(Arc::new).collect(),
+        })
     }
 
     fn all_done(&self) -> bool {
