@@ -9,10 +9,10 @@ pub mod default;
 
 pub type UpdateRunner = &'static (dyn Fn(&Update) + Sync);
 
-/// An Update that can be runs
+/// An Update that can be run.
 pub struct Update {
     pub id: UpdateId,
-    pub(crate) info: Mutex<Info>,
+    pub info: Info,
     pub state: SyncState,
     pub program: Program,
     pub output: Mutex<Option<Output>>,
@@ -36,7 +36,7 @@ impl Update {
         Update {
             id,
             program,
-            info: Mutex::new(info),
+            info,
             state: SyncState::new(State::Pending),
             output: Mutex::new(None),
             run: &default::run,
@@ -52,7 +52,7 @@ impl Update {
         Update {
             id,
             program,
-            info: Mutex::new(info),
+            info,
             state: SyncState::new(State::Pending),
             output: Mutex::new(None),
             run: runner,

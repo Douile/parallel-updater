@@ -48,15 +48,16 @@ impl Updater {
     }
 
     fn greedy_select_update(&self) -> Option<UpdateId> {
-        let stdin_in_use = self.updates.iter().any(|update| {
-            update.state.get() == State::Running && update.info.lock().unwrap().input
-        });
+        let stdin_in_use = self
+            .updates
+            .iter()
+            .any(|update| update.state.get() == State::Running && update.info.input);
 
         let done = self.done();
         let running = self.running();
 
         let mut valid_pending = self.updates.iter().filter(|update| {
-            let info = update.info.lock().unwrap();
+            let info = &update.info;
             update.state.get() == State::Pending
                 && (!stdin_in_use || !info.input)
                 && info.depends.iter().all(|id| done.contains(id))

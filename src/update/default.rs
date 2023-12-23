@@ -8,17 +8,8 @@ pub fn run(update: &Update) {
 
     let mut command = update.create_command();
     {
-        let info = match update.info.lock() {
-            Ok(info) => info,
-            Err(e) => {
-                eprintln!("Mutex error: {:?}", e);
-                update.state.set(State::Error);
-                return;
-            }
-        };
-
         // TODO: Capture
-        if info.input {
+        if update.info.input {
             command.stdin(Stdio::inherit());
             command.stdout(Stdio::inherit());
             command.stderr(Stdio::inherit());
