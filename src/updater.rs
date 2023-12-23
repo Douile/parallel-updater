@@ -79,7 +79,7 @@ impl Updater {
                 let tx = tx.clone();
 
                 std::thread::spawn(move || {
-                    update.run();
+                    (update.run)(&update);
                     tx.send(update.id)
                 });
 
