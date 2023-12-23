@@ -7,6 +7,7 @@ use std::{
 use crate::types::*;
 
 pub mod default;
+pub mod paru;
 
 pub type UpdateRunner = &'static (dyn Fn(&Update, &GlobalState) + Sync);
 

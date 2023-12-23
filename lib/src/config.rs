@@ -8,9 +8,11 @@ use crate::{
 
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum UpdateKind {
     #[default]
     Default,
+    Paru,
 }
 
 #[derive(Debug, Clone)]
@@ -74,7 +76,7 @@ impl UpdateConfig {
             );
         }
 
-        Ok(Update::new(
+        Ok(Update::new_with_runnner(
             *id_map
                 .get(name)
                 .ok_or(ErrorKind::InvalidConfig.context("Name doesn't exist"))?,
@@ -85,6 +87,10 @@ impl UpdateConfig {
                 parallel: true,
                 conflicts,
                 depends,
+            },
+            match self.kind {
+                UpdateKind::Default => &crate::update::default::run,
+                UpdateKind::Paru => &crate::update::paru::run,
             },
         ))
     }
