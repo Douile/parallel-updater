@@ -3,6 +3,8 @@ use std::process::Stdio;
 use crate::types::*;
 use crate::update::Update;
 
+use super::UpdateOutput;
+
 pub fn run(update: &Update) {
     update.state.set(State::Starting);
 
@@ -28,6 +30,7 @@ pub fn run(update: &Update) {
             return;
         }
     };
+    let start = std::time::Instant::now();
 
     update.state.set(State::Running);
 
@@ -39,6 +42,7 @@ pub fn run(update: &Update) {
             return;
         }
     };
+    let duration = start.elapsed();
 
     if output.status.success() {
         update.state.set(State::Success);
@@ -48,5 +52,5 @@ pub fn run(update: &Update) {
             .set(State::Failed(output.status.code().unwrap_or(0)));
     }
 
-    *update.output.lock().unwrap() = Some(output);
+    *update.output.lock().unwrap() = Some(UpdateOutput { output, duration });
 }

@@ -1,6 +1,7 @@
 use std::{
     process::{Command, Output},
     sync::Mutex,
+    time::Duration,
 };
 
 use crate::types::*;
@@ -9,13 +10,19 @@ pub mod default;
 
 pub type UpdateRunner = &'static (dyn Fn(&Update) + Sync);
 
+#[derive(Debug, Clone)]
+pub struct UpdateOutput {
+    pub output: Output,
+    pub duration: Duration,
+}
+
 /// An Update that can be run.
 pub struct Update {
     pub id: UpdateId,
     pub info: Info,
     pub state: SyncState,
     pub program: Program,
-    pub output: Mutex<Option<Output>>,
+    pub output: Mutex<Option<UpdateOutput>>,
     pub(crate) run: UpdateRunner,
 }
 
@@ -33,14 +40,7 @@ impl std::fmt::Debug for Update {
 
 impl Update {
     pub fn new(id: UpdateId, program: Program, info: Info) -> Self {
-        Update {
-            id,
-            program,
-            info,
-            state: SyncState::new(State::Pending),
-            output: Mutex::new(None),
-            run: &default::run,
-        }
+        Update::new_with_runnner(id, program, info, &default::run)
     }
 
     pub fn new_with_runnner(
