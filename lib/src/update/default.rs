@@ -5,21 +5,26 @@ use crate::update::Update;
 
 use super::UpdateOutput;
 
-pub fn run(update: &Update) {
+pub fn run(update: &Update, global_state: &GlobalState) {
+    if update.info.input {
+        // Must set global stdin lock before we set state to starting
+        // because schedule continues trying to schedule once we have set state to starting.
+        *global_state.has_stdin_lock.lock().unwrap() = Some(update.id);
+    }
+
     update.state.set(State::Starting);
 
     let mut command = update.create_command();
-    {
-        // TODO: Capture
-        if update.info.input {
-            command.stdin(Stdio::inherit());
-            command.stdout(Stdio::inherit());
-            command.stderr(Stdio::inherit());
-        } else {
-            command.stdin(Stdio::null());
-            command.stdout(Stdio::piped());
-            command.stderr(Stdio::piped());
-        }
+
+    // TODO: Capture
+    if update.info.input {
+        command.stdin(Stdio::inherit());
+        command.stdout(Stdio::inherit());
+        command.stderr(Stdio::inherit());
+    } else {
+        command.stdin(Stdio::null());
+        command.stdout(Stdio::piped());
+        command.stderr(Stdio::piped());
     }
 
     let child = match command.spawn() {

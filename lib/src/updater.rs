@@ -1,6 +1,6 @@
 use std::{
     collections::HashSet,
-    sync::{mpsc::channel, Arc},
+    sync::{mpsc::channel, Arc, Mutex},
 };
 
 use crate::error::Result;
@@ -75,11 +75,8 @@ impl Updater {
             .count()
     }
 
-    fn greedy_select_update(&self) -> Option<UpdateId> {
-        let stdin_in_use = self
-            .updates
-            .iter()
-            .any(|update| update.state.get() == State::Running && update.info.input);
+    fn greedy_select_update(&self, global_state: &GlobalState) -> Option<UpdateId> {
+        let stdin_in_use = global_state.has_stdin_lock.lock().unwrap().is_some();
 
         let done = self.done();
         let running = self.running();
@@ -98,17 +95,31 @@ impl Updater {
     pub fn run(self, threads: usize) -> Vec<Arc<Update>> {
         let (tx, rx) = channel();
 
+        let global_state = Arc::new(GlobalState {
+            should_try_scheduling: tx.clone(),
+            has_stdin_lock: Mutex::new(None),
+        });
+
         while !self.all_done() {
             for _ in self.running_count()..threads {
-                let Some(next) = self.greedy_select_update() else {
+                let Some(next) = self.greedy_select_update(&global_state) else {
                     break;
                 };
 
                 let update = Arc::clone(&self.updates[next.0]);
+                let global_state = Arc::clone(&global_state);
                 let tx = tx.clone();
 
                 std::thread::spawn(move || {
-                    (update.run)(&update);
+                    (update.run)(&update, &global_state);
+
+                    // Cleanup un-closed stdin locks
+                    let mut stdin_lock = global_state.has_stdin_lock.lock().unwrap();
+                    if *stdin_lock == Some(update.id) {
+                        *stdin_lock = None;
+                    }
+
+                    // Notify that we finished
                     tx.send(update.id)
                 });
 

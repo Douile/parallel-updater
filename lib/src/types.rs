@@ -1,4 +1,4 @@
-use std::sync::{Condvar, Mutex};
+use std::sync::{mpsc::Sender, Condvar, Mutex};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct UpdateId(pub usize);
@@ -135,4 +135,10 @@ impl SyncState {
             .wait_while(self.mutex.lock().unwrap(), |s| *s == state)
             .unwrap();
     }
+}
+
+#[derive(Debug)]
+pub struct GlobalState {
+    pub(crate) should_try_scheduling: Sender<UpdateId>,
+    pub(crate) has_stdin_lock: Mutex<Option<UpdateId>>,
 }

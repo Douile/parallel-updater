@@ -8,7 +8,7 @@ use crate::types::*;
 
 pub mod default;
 
-pub type UpdateRunner = &'static (dyn Fn(&Update) + Sync);
+pub type UpdateRunner = &'static (dyn Fn(&Update, &GlobalState) + Sync);
 
 #[derive(Debug, Clone)]
 pub struct UpdateOutput {
