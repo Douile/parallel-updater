@@ -8,6 +8,8 @@ rust-version = "1.74.1"
 
 [features]
 serde = ["dep:serde"]
+clap = ["dep:clap"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"], optional = true }
+clap = { version = "4.4.11", features = ["derive"], optional = true, no-default-features = true }

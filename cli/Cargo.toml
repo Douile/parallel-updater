@@ -10,5 +10,6 @@ rust-version = "1.74.1"
 
 [dependencies]
 parallel-update = { path = "../lib" }
-parallel-update-config = { path = "../config", features = ["serde"]}
+parallel-update-config = { path = "../config", features = ["serde", "clap"] }
 toml = "0.8.8"
+clap = { version = "4.4.11", features = ["cargo", "derive"] }

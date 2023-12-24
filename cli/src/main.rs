@@ -1,7 +1,12 @@
-use std::{io::Read, process::ExitCode};
+use std::{io::Read, path::PathBuf, process::ExitCode};
+
+use clap::Parser;
 
 use parallel_update::{types::*, update::Update, Updater};
 use parallel_update_config::config::{Config, UpdaterConfig};
+
+pub mod error;
+use error::Result;
 
 fn print_update(
     update: &Update,
@@ -70,10 +75,46 @@ fn print_update(
     }
 }
 
-fn main() -> Result<ExitCode, Box<dyn std::error::Error>> {
-    let mut config = std::fs::OpenOptions::new()
-        .read(true)
-        .open("./updates.toml")?;
+/// Run many update commands in parallel
+#[derive(Debug, Parser)]
+struct Args {
+    /// The config file to use (defaults to "./updates.toml")
+    #[arg(short, long)]
+    config_file: Option<String>,
+    #[command(flatten)]
+    updater: Option<UpdaterConfig>,
+}
+
+fn main() -> Result<ExitCode> {
+    let args = Args::parse();
+
+    let mut config = if let Some(file) = args.config_file.as_ref() {
+        std::fs::OpenOptions::new().read(true).open(file)?
+    } else {
+        let mut file_locations = vec![PathBuf::from("updates.toml")];
+
+        if let Ok(home) = std::env::var("HOME") {
+            let home = PathBuf::from(home);
+            file_locations.push(home.join(concat!(
+                ".config/",
+                clap::crate_name!(),
+                "/updates.toml"
+            )));
+        }
+
+        let mut config = std::fs::OpenOptions::new()
+            .read(true)
+            .open(&file_locations[0]);
+
+        for location in file_locations.iter().skip(1) {
+            if config.is_ok() {
+                break;
+            }
+            config = std::fs::OpenOptions::new().read(true).open(location);
+        }
+
+        config?
+    };
 
     let mut config_str = String::with_capacity(config.metadata()?.len() as usize);
 
@@ -81,9 +122,15 @@ fn main() -> Result<ExitCode, Box<dyn std::error::Error>> {
 
     let config: Config = toml::from_str(&config_str)?;
 
-    let (c, updater) = Updater::try_from_config(config)?;
+    let (mut c, updater) = Updater::try_from_config(config)?;
+
+    if let Some(arg_c) = args.updater.as_ref() {
+        c.merge(arg_c);
+    }
 
     if c.debug_config {
+        eprintln!("{:#?}", args);
+
         eprintln!("{:#?}", c);
 
         for update in updater.updates() {
