@@ -2,8 +2,9 @@ use std::backtrace::{Backtrace, BacktraceStatus};
 
 #[derive(Debug, Clone, Copy)]
 pub enum ErrorKind {
-    InvalidUpdater,
-    InvalidConfig,
+    Library,
+    MissingConfigFile,
+    ConfigParseError,
 }
 
 pub struct Error {
@@ -46,18 +47,22 @@ impl ErrorKind {
     }
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
-
-macro_rules! context {
-    ($kind: expr, $($arg:tt)*) => {
-        $kind.context(format!($($arg)*))
-    };
-}
-pub(crate) use context;
-
-macro_rules! bail {
-    ($kind: expr, $($arg:tt)*) => {
-        return Err(crate::error::context!($kind, $($arg)*))
+impl From<std::io::Error> for Error {
+    fn from(value: std::io::Error) -> Error {
+        ErrorKind::MissingConfigFile.context(value)
     }
 }
-pub(crate) use bail;
+
+impl From<toml::de::Error> for Error {
+    fn from(value: toml::de::Error) -> Error {
+        ErrorKind::ConfigParseError.context(value)
+    }
+}
+
+impl From<parallel_update::error::Error> for Error {
+    fn from(value: parallel_update::error::Error) -> Error {
+        ErrorKind::Library.context(value)
+    }
+}
+
+pub type Result<T> = std::result::Result<T, Error>;

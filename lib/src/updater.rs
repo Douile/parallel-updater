@@ -5,9 +5,11 @@ use std::{
 
 use parallel_update_config::config::{Config, UpdaterConfig};
 
-use crate::error::Result;
-use crate::Update;
-use crate::{error::ErrorKind, types::*};
+use crate::{
+    error::{bail, ErrorKind::InvalidUpdater, Result},
+    types::*,
+    Update,
+};
 
 #[derive(Debug)]
 pub struct Updater {
@@ -17,22 +19,34 @@ pub struct Updater {
 fn validate_updates(updates: &[Update]) -> Result<()> {
     for update in updates {
         if update.id.0 >= updates.len() {
-            return Err(ErrorKind::InvalidUpdater.context("Update ID is out of bounds"));
+            bail!(InvalidUpdater, "Update ID is out of bounds: {:?}", update);
         }
         for dependency in &update.info.depends {
             if dependency.0 >= updates.len() {
-                return Err(ErrorKind::InvalidUpdater.context("Dependecy ID is out of bounds"));
+                bail!(
+                    InvalidUpdater,
+                    "Dependency ID is out of bounds: {:?}",
+                    update
+                );
             }
             if *dependency == update.id {
-                return Err(ErrorKind::InvalidUpdater.context("Update cannot depend on itself"));
+                bail!(
+                    InvalidUpdater,
+                    "Update cannot depend on itself: {:?}",
+                    update
+                );
             }
         }
         for conflict in &update.info.conflicts {
             if conflict.0 >= updates.len() {
-                return Err(ErrorKind::InvalidUpdater.context("Conflict ID is out of bounds"));
+                bail!(InvalidUpdater, "Conflict ID is out of bounds: {:?}", update);
             }
             if *conflict == update.id {
-                return Err(ErrorKind::InvalidUpdater.context("Update cannot conflict with itself"));
+                bail!(
+                    InvalidUpdater,
+                    "Update cannot conflict with itself: {:?}",
+                    update
+                );
             }
         }
     }

@@ -7,7 +7,7 @@ use std::{
 
 use parallel_update_config::{config::UpdateConfig, primatives::UpdateKind, types::Program};
 
-use crate::error::{ErrorKind, Result};
+use crate::error::{context, ErrorKind::InvalidConfig, Result};
 use crate::types::*;
 
 pub mod default;
@@ -93,26 +93,22 @@ impl Update {
     ) -> Result<Update> {
         let mut conflicts = Vec::with_capacity(config.conflicts.len());
         for conflict in config.conflicts.into_iter() {
-            conflicts.push(
-                *id_map
-                    .get(&conflict)
-                    .ok_or(ErrorKind::InvalidConfig.context("Conflict doesn't exist"))?,
-            );
+            conflicts.push(*id_map.get(&conflict).ok_or_else(|| {
+                context!(InvalidConfig, "Conflict doesn't exist: {:?}", conflict)
+            })?);
         }
 
         let mut depends = Vec::with_capacity(config.depends.len());
         for depend in config.depends.into_iter() {
-            depends.push(
-                *id_map
-                    .get(&depend)
-                    .ok_or(ErrorKind::InvalidConfig.context("Dependency doesn't exist"))?,
-            );
+            depends.push(*id_map.get(&depend).ok_or_else(|| {
+                context!(InvalidConfig, "Dependency doesn't exist: {:?}", depend)
+            })?);
         }
 
         Ok(Update::new_with_runnner(
             *id_map
                 .get(name)
-                .ok_or(ErrorKind::InvalidConfig.context("Name doesn't exist"))?,
+                .ok_or_else(|| context!(InvalidConfig, "Name doesn't exist: {:?}", name))?,
             config.program,
             Info {
                 input: config.input,
