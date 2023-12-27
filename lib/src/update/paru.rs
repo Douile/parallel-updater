@@ -17,6 +17,12 @@ enum InputState {
 
 // TODO: Properly handle errors
 pub fn run(update: &Update, global_state: &GlobalState) {
+    if !update.info.input {
+        eprintln!("Paru runner requires capturing input");
+        update.state.set(State::Error(InvalidConfig));
+        return;
+    }
+
     // Must set global stdin lock before we set state to starting
     // because schedule continues trying to schedule once we have set state to starting.
     *global_state.has_stdin_lock.lock().unwrap() = Some(update.id);
@@ -36,7 +42,7 @@ pub fn run(update: &Update, global_state: &GlobalState) {
         Ok(child) => child,
         Err(e) => {
             eprintln!("Error spawning child: {:?}", e);
-            update.state.set(State::Error);
+            update.state.set(State::Error(CommandSpawn));
             return;
         }
     };
@@ -89,7 +95,7 @@ pub fn run(update: &Update, global_state: &GlobalState) {
         Ok(output) => output,
         Err(e) => {
             eprintln!("Error waiting for output: {:?}", e);
-            update.state.set(State::Error);
+            update.state.set(State::Error(CommandOutput));
             return;
         }
     };

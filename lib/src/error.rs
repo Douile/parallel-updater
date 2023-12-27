@@ -1,9 +1,12 @@
 use std::backtrace::{Backtrace, BacktraceStatus};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrorKind {
     InvalidUpdater,
     InvalidConfig,
+    CommandSpawn,
+    CommandOutput,
+    IOError,
 }
 
 pub struct Error {

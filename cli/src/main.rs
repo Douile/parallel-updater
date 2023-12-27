@@ -25,6 +25,10 @@ fn print_update(
         eprint!(" ({})", code);
     }
 
+    if let State::Error(error) = state {
+        eprint!(" ({:?})", error);
+    }
+
     if config.output_duration {
         if let Some(ref output) = *update.output.lock().unwrap() {
             eprint!(" took {:?}", output.duration);
@@ -41,7 +45,7 @@ fn print_update(
     }
 
     if (config.output_success_logs && state == State::Success)
-        || (config.output_failure_logs && matches!(state, State::Failed(_) | State::Error))
+        || (config.output_failure_logs && matches!(state, State::Failed(_) | State::Error(_)))
     {
         if let Some(ref output) = *update.output.lock().unwrap() {
             let mut did_print = false;

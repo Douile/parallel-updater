@@ -1,5 +1,7 @@
 use std::sync::{mpsc::Sender, Condvar, Mutex};
 
+use crate::error::ErrorKind;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct UpdateId(pub usize);
 
@@ -16,7 +18,7 @@ pub enum State {
     /// Update finished returning an error
     Failed(i32),
     /// Update encountered a rust error while running
-    Error,
+    Error(ErrorKind),
     /// Update wasn't able to run
     Ignored,
 }
@@ -25,7 +27,7 @@ impl State {
     pub fn is_done(&self) -> bool {
         matches!(
             self,
-            State::Success | State::Failed(_) | State::Error | State::Ignored
+            State::Success | State::Failed(_) | State::Error(_) | State::Ignored
         )
     }
     pub fn is_running(&self) -> bool {
